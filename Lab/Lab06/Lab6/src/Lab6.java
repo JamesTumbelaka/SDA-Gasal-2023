@@ -4,13 +4,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.util.ArrayDeque;
 import java.util.StringTokenizer;
 
 public class Lab6 {
-
     private static InputReader in;
-    static PrintWriter out;
+    private static PrintWriter out;
     static AVLTree tree = new AVLTree();
 
     public static void main(String[] args) {
@@ -19,77 +17,92 @@ public class Lab6 {
         OutputStream outputStream = System.out;
         out = new PrintWriter(outputStream);
 
-        int numOfInitialPlayers = in.nextInt();
-        for (int i = 0; i < numOfInitialPlayers; i++) {
-            // TODO: process inputs
-            String P = in.next();
-            int S = in.nextInt();
-
-            // insert to tree
-            tree.root = tree.insertNode(tree.root, S, P);
+        int N = in.nextInt();
+        for (int i = 0; i < N; i++) {
+            int value = in.nextInt();
+            tree.root = tree.insert(tree.root, value);
         }
 
-        int numOfQueries = in.nextInt();
-        // tree.preOrder(out, tree.root);
-        for (int i = 0; i < numOfQueries; i++) {
-            String cmd = in.next();
-            if (cmd.equals("MASUK")) {
-                handleQueryMasuk();
-            } else {
-                handleQueryDuo();
+        int Q = in.nextInt();
+        for (int i = 0; i < Q; i++) {
+            String queryType = in.next();
+            char query = queryType.charAt(0);
+            if (query == 'G') {
+                grow();
+            } else if (query == 'P') {
+                pick();
+            } else if (query == 'F') {
+                fall();
+            } else if (query == 'H') {
+                height();
             }
-            // tree.preOrder(out, tree.root);
         }
 
         out.close();
     }
 
-    static void handleQueryMasuk() {
-        // TODO
-        String P = in.next();
-        int S = in.nextInt();
-
-        // insert to tree
-        tree.root = tree.insertNode(tree.root, S, P);
-
-        // calculate how many players are have less score than inserted player
-        out.println(tree.getRank(tree.root, S));
+    static void grow() {
+        int value = in.nextInt();
+        tree.root = tree.insert(tree.root, value);
     }
 
-    static void handleQueryDuo() {
-        // TODO
-        int K = in.nextInt();
-        int B = in.nextInt();
-
-        Node nodeLB = tree.lowerBound(tree.root, K);
-        Node nodeUB = tree.upperBound(tree.root, B);
-
-        if (tree.root == null || tree.root.height < 1 ||
-                nodeLB == null || nodeUB == null || nodeLB.key > nodeUB.key ||
-                (nodeLB == nodeUB && nodeLB.entries.size() == 1)) {
-            out.println("-1 -1");
+    static void pick() {
+        int value = in.nextInt();
+        if (tree.search(tree.root, value) != null) {
+            tree.root = tree.delete(tree.root, value);
+            out.println(value);
         } else {
-            String entryLB = nodeLB.entries.removeLast();
-            nodeLB.size--;
-            if (nodeLB.entries.isEmpty()) {
-                tree.root = tree.deleteNode(tree.root, nodeLB.key);
-            }
+            out.println(-1);
+        }
+    }
 
-            String entryUB = nodeUB.entries.removeLast();
-            nodeUB.size--;
-            if (nodeUB.entries.isEmpty()) {
-                tree.root = tree.deleteNode(tree.root, nodeUB.key);
-            }
+    static void fall() {
+        if (tree.root != null) {
+            int largest = tree.findLargestNode(tree.root);
+            tree.root = tree.delete(tree.root, largest);
+            out.println(largest);
+        } else {
+            out.println(-1);
+        }
+    }
 
-            if (entryLB.compareTo(entryUB) < 0) {
-                out.println(entryLB + " " + entryUB);
+    static void height() {
+        out.println(tree.getHeight(tree.root));
+    }
+
+    static int getHeight(Node node) {
+        if (node != null) {
+            return node.height;
+        }
+        return 0;
+    }
+
+    // taken from https://www.programiz.com/dsa/avl-tree
+    // a method to print the contents of a Tree data structure in a readable
+    // format. it is encouraged to use this method for debugging purposes.
+    // to use, simply copy and paste this line of code:
+    // printTree(tree.root, "", true);
+    static void printTree(Node currPtr, String indent, boolean last) {
+        if (currPtr != null) {
+            out.print(indent);
+            if (last) {
+                out.print("R----");
+                indent += "   ";
             } else {
-                out.println(entryUB + " " + entryLB);
+                out.print("L----");
+                indent += "|  ";
             }
+            out.println(currPtr.key);
+            printTree(currPtr.left, indent, false);
+            printTree(currPtr.right, indent, true);
         }
     }
 
     // taken from https://codeforces.com/submissions/Petr
+    // together with PrintWriter, these input-output (IO) is much faster than the
+    // usual Scanner(System.in) and System.out
+    // please use these classes to avoid your fast algorithm gets Time Limit
+    // Exceeded caused by slow input-output (IO)
     static class InputReader {
         public BufferedReader reader;
         public StringTokenizer tokenizer;
@@ -110,272 +123,30 @@ public class Lab6 {
             return tokenizer.nextToken();
         }
 
+        public char nextChar() {
+            return next().charAt(0);
+        }
+
         public int nextInt() {
             return Integer.parseInt(next());
         }
+
     }
 }
 
-// TODO: modify as needed
 class Node {
-    int key, height, size;
+    int key, height;
     Node left, right;
-    ArrayDeque<String> entries = new ArrayDeque<>();
 
     Node(int key) {
         this.key = key;
-        this.height = 1;
-        this.size = entries.size();
-    }
-
-    @Override
-    public String toString() {
-        return "Node{" +
-                "key=" + key +
-                ", height=" + height +
-                ", size=" + size +
-                ", entries=" + entries +
-                '}';
+        height = 1;
     }
 }
 
 class AVLTree {
-    // reference: https://www.geeksforgeeks.org/deletion-in-an-avl-tree/
-
     Node root;
 
-    // Utility function to recalculate a node's height
-    void updateHeight(Node node) {
-        node.height = Math.max(getHeight(node.left), getHeight(node.right)) + 1;
-
-        // update size
-        node.size = node.entries.size() + getSize(node.left) + getSize(node.right);
-    }
-
-    Node rightRotate(Node node) {
-        // TODO: implement right rotate
-        Node newRoot = node.left;
-        Node tmpChild = newRoot.right;
-
-        // perform rotation
-        newRoot.right = node;
-        node.left = tmpChild;
-
-        // update heights
-        updateHeight(node);
-        updateHeight(newRoot);
-
-        // return new root
-        return newRoot;
-    }
-
-    Node leftRotate(Node node) {
-        // TODO: implement left rotate
-        Node newRoot = node.right;
-        Node tmpChild = newRoot.left;
-
-        // perform rotation
-        newRoot.left = node;
-        node.right = tmpChild;
-
-        // update heights
-        updateHeight(node);
-        updateHeight(newRoot);
-
-        return newRoot;
-    }
-
-    Node insertNode(Node node, int key, String playerName) {
-        // TODO: implement insert node
-
-        // BST insertion
-        if (node == null) {
-            Node newNode = new Node(key);
-            newNode.entries.add(playerName);
-            newNode.size++;
-            return newNode;
-        }
-
-        if (key < node.key) {
-            node.left = insertNode(node.left, key, playerName);
-        } else if (key > node.key) {
-            node.right = insertNode(node.right, key, playerName);
-        } else {
-            node.entries.add(playerName);
-            node.size++;
-            return node;
-        }
-
-        // AVL
-
-        updateHeight(node);
-
-        // check balance status
-        int balance = getBalance(node);
-
-        // LL
-        if (balance > 1 && key < node.left.key)
-            return rightRotate(node);
-
-        // RR
-        if (balance < -1 && key > node.right.key)
-            return leftRotate(node);
-
-        // LR
-        if (balance > 1 && key > node.left.key) {
-            node.left = leftRotate(node.left);
-            return rightRotate(node);
-        }
-
-        // RL
-        if (balance < -1 && key < node.right.key) {
-            node.right = rightRotate(node.right);
-            return leftRotate(node);
-        }
-
-        return node;
-    }
-
-    Node deleteNode(Node node, int key) {
-        // BST deletion
-        if (node == null)
-            return node;
-
-        if (key < node.key) {
-            node.left = deleteNode(node.left, key);
-        } else if (key > node.key) {
-            node.right = deleteNode(node.right, key);
-        } else {
-            // key == node.key -> the node we're going to delete
-
-            // node with only one child or no child
-            if ((node.left == null) || (node.right == null)) {
-                Node tmp = null;
-                if (tmp == node.left)
-                    tmp = node.right;
-                else
-                    tmp = node.left;
-
-                // no child
-                if (tmp == null) {
-                    tmp = node;
-                    node = null;
-                } else {
-                    // one child
-                    node = tmp;
-                }
-            } else {
-                // node with two children
-                // inorder predecessor (the largest node in the left subtree)
-                Node tmp = upperBound(node.left, node.key);
-
-                // copy the inorder predecessor's content to this node
-                node.key = tmp.key;
-                node.entries = tmp.entries;
-
-                // delete the inorder predecessor
-                node.left = deleteNode(node.left, tmp.key);
-            }
-        }
-
-        // if the tree had only one node then return
-        if (node == null)
-            return node;
-
-        // AVL
-        updateHeight(node);
-
-        // check balance status
-        int balance = getBalance(node);
-
-        // LL
-        if (balance > 1 && getBalance(node.left) >= 0)
-            return rightRotate(node);
-
-        // RR
-        if (balance < -1 && getBalance(node.right) <= 0)
-            return leftRotate(node);
-
-        // LR
-        if (balance > 1 && getBalance(node.left) < 0) {
-            node.left = leftRotate(node.left);
-            return rightRotate(node);
-        }
-
-        // RL
-        if (balance < -1 && getBalance(node.right) > 0) {
-            node.right = rightRotate(node.right);
-            return leftRotate(node);
-        }
-
-        return node;
-    }
-
-    Node lowerBound(Node node, int value) {
-        // TODO: return node with the lowest key that is >= value
-        if (node == null)
-            return node;
-
-        if (node.key == value)
-            return node;
-
-        if (node.key > value) {
-            Node tmp = lowerBound(node.left, value);
-            if (tmp == null)
-                return node;
-            return tmp;
-        }
-
-        return lowerBound(node.right, value);
-    }
-
-    Node upperBound(Node node, int value) {
-        // TODO: return node with the greatest key that is <= value
-        if (node == null)
-            return node;
-
-        if (node.key == value)
-            return node;
-
-        if (node.key < value) {
-            Node tmp = upperBound(node.right, value);
-            if (tmp == null)
-                return node;
-            return tmp;
-        }
-
-        return upperBound(node.left, value);
-    }
-
-    int getRank(Node node, int key) {
-        if (node == null)
-            return 0;
-
-        if (node.key > key)
-            return getRank(node.left, key);
-        else if (node.key < key)
-            return getSize(node.left) + node.entries.size() + getRank(node.right, key);
-        else
-            // if (node.key == key)
-            return getSize(node.left);
-    }
-
-    void preOrder(PrintWriter out, Node node) {
-        if (node != null) {
-            out.println(node);
-            preOrder(out, node.left);
-            preOrder(out, node.right);
-        }
-    }
-
-    int getSize(Node node) {
-        if (node == null)
-            return 0;
-
-        return node.size;
-    }
-
-    // Utility function to get height of node
     int getHeight(Node node) {
         if (node == null) {
             return 0;
@@ -383,11 +154,145 @@ class AVLTree {
         return node.height;
     }
 
-    // Utility function to get balance factor of node
     int getBalance(Node node) {
         if (node == null) {
             return 0;
         }
         return getHeight(node.left) - getHeight(node.right);
+    }
+
+    Node insert(Node node, int key) {
+        if (node == null) {
+            return new Node(key);
+        }
+
+        if (key < node.key) {
+            node.left = insert(node.left, key);
+        } else if (key > node.key) {
+            node.right = insert(node.right, key);
+        } else {
+            return node;
+        }
+
+        node.height = 1 + Math.max(getHeight(node.left), getHeight(node.right));
+
+        int balance = getBalance(node);
+
+        if (balance > 1 && key < node.left.key) {
+            return singleRightRotate(node);
+        }
+
+        if (balance < -1 && key > node.right.key) {
+            return singleLeftRotate(node);
+        }
+
+        if (balance > 1 && key > node.left.key) {
+            node.left = singleLeftRotate(node.left);
+            return singleRightRotate(node);
+        }
+
+        if (balance < -1 && key < node.right.key) {
+            node.right = singleRightRotate(node.right);
+            return singleLeftRotate(node);
+        }
+
+        return node;
+    }
+    
+    Node minValueNode(Node node) {
+        Node current = node;
+        while (current.left != null) {
+            current = current.left;
+        }
+        return current;
+    }
+
+    Node delete(Node root, int key) {
+        if (root == null) {
+            return root;
+        }
+
+        if (key < root.key) {
+            root.left = delete(root.left, key);
+        } else if (key > root.key) {
+            root.right = delete(root.right, key);
+        } else {
+            if (root.left == null) root = root.right;
+            else if (root.right == null) root = root.left;
+            else {
+                root.key = findMaxNode(root.left).key;
+                root.left = delete(root.left, root.key);
+            }
+        }
+
+        if (root == null) return root;
+
+        root.height = 1 + Math.max(getHeight(root.left), getHeight(root.right));
+        int balance = getBalance(root);
+
+        if (balance > 1 && getBalance(root.left) >= 0) return singleRightRotate(root);
+        if (balance > 1 && getBalance(root.left) < 0) {
+            root.left = singleLeftRotate(root.left);
+            return singleRightRotate(root);
+        }
+        if (balance < -1 && getBalance(root.right) <= 0) return singleLeftRotate(root);
+        if (balance < -1 && getBalance(root.right) > 0) {
+            root.right = singleRightRotate(root.right);
+            return singleLeftRotate(root);
+        }
+
+        return root;
+    }
+
+    Node singleLeftRotate(Node y) {
+        Node x = y.right;
+        Node T2 = x.left;
+
+        x.left = y;
+        y.right = T2;
+
+        y.height = 1 + Math.max(getHeight(y.left), getHeight(y.right));
+        x.height = 1 + Math.max(getHeight(x.left), getHeight(x.right));
+
+        return x;
+    }
+
+    Node singleRightRotate(Node x) {
+        Node y = x.left;
+        Node T2 = y.right;
+
+        y.right = x;
+        x.left = T2;
+
+        x.height = 1 + Math.max(getHeight(x.left), getHeight(x.right));
+        y.height = 1 + Math.max(getHeight(y.left), getHeight(y.right));
+
+        return y;
+    }
+
+    Node search(Node root, int key) {
+        while (root != null) {
+            if (key < root.key) {
+                root = root.left;
+            } else if (key > root.key) {
+                root = root.right;
+            } else {
+                return root;
+            }
+        }
+        return null;
+    }
+
+    int findLargestNode(Node node) {
+        Node current = node;
+        while (current.right != null) {
+            current = current.right;
+        }
+        return current.key;
+    }
+    Node findMaxNode(Node root) {
+        Node current = root;
+        while (current.right != null) current = current.right;
+        return current;
     }
 }
