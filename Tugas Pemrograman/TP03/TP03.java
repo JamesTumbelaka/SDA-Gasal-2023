@@ -108,14 +108,14 @@ class Edge {
 }
 
 class Graph {
-    private ArrayList<ArrayList<Edge>> graph;
-    private ArrayList<Boolean> treasureRoom;
+    private Map<Integer, List<Edge>> graph;
+    private Set<Integer> treasureRoom;
 
     public Graph(int V) {
-        graph = new ArrayList<>();
-        treasureRoom = new ArrayList<>(Collections.nCopies(V + 1, false));
-        for (int i = 0; i <= V; i++) {
-            graph.add(new ArrayList<>());
+        graph = new HashMap<>();
+        treasureRoom = new HashSet<>();
+        for (int i = 1; i <= V; i++) {
+            graph.put(i, new ArrayList<>());
         }
     }
 
@@ -124,13 +124,8 @@ class Graph {
     }
 
     public void addTreasureRoom(int idRuang) {
-        if (idRuang > 0 && idRuang < treasureRoom.size()) {
-            treasureRoom.set(idRuang, true);
-        } else {
-            throw new IllegalArgumentException("Invalid room ID: " + idRuang);
-        }
+        treasureRoom.add(idRuang);
     }
-
 
     public int jumlahMaksimumTreasureRoom(long groupSize) {
         return dfs(groupSize);
@@ -145,24 +140,24 @@ class Graph {
     }
 
     private int dfs(long groupSize) {
-        boolean[] visited = new boolean[graph.size()];
+        Set<Integer> visited = new HashSet<>();
         ArrayDeque<Integer> stack = new ArrayDeque<>();
         stack.push(1);
         int maxRooms = 0;
 
         while (!stack.isEmpty()) {
             int node = stack.pop();
-            if (visited[node]) {
+            if (visited.contains(node)) {
                 continue;
             }
-            visited[node] = true;
+            visited.add(node);
 
-            if (treasureRoom.get(node)) {
+            if (treasureRoom.contains(node)) {
                 maxRooms++;
             }
 
             for (Edge edge : graph.get(node)) {
-                if (edge.weight <= groupSize && !visited[edge.to]) {
+                if (edge.weight <= groupSize && !visited.contains(edge.to)) {
                     stack.push(edge.to);
                 }
             }
@@ -171,31 +166,28 @@ class Graph {
     }
 
     private int bfs(int ruangStart) {
-        boolean[] visited = new boolean[graph.size()];
-        LinkedList<Integer> queue = new LinkedList<>();
-        long[] maxEdgeWeightTo = new long[graph.size()];
-        Arrays.fill(maxEdgeWeightTo, Long.MAX_VALUE);
-        maxEdgeWeightTo[ruangStart] = 0;
-        queue.add(ruangStart);
+        PriorityQueue<Edge> queue = new PriorityQueue<>(Comparator.comparingLong(e -> e.weight));
+        Set<Integer> visited = new HashSet<>();
+        queue.add(new Edge(ruangStart, 0));
 
         while (!queue.isEmpty()) {
-            int currentRoom = queue.poll();
-            if (visited[currentRoom]) {
+            Edge currentEdge = queue.poll();
+            int currentRoom = currentEdge.to;
+            long currentWeight = currentEdge.weight;
+
+            if (visited.contains(currentRoom)) {
                 continue;
             }
-            visited[currentRoom] = true;
+            visited.add(currentRoom);
 
-            if (treasureRoom.get(currentRoom)) {
-                return (int) maxEdgeWeightTo[currentRoom];
+            if (treasureRoom.contains(currentRoom)) {
+                return (int) currentWeight;
             }
 
             for (Edge edge : graph.get(currentRoom)) {
-                if (!visited[edge.to]) {
-                    long weightToNeighbour = Math.max(maxEdgeWeightTo[currentRoom], edge.weight);
-                    if (weightToNeighbour < maxEdgeWeightTo[edge.to]) {
-                        maxEdgeWeightTo[edge.to] = weightToNeighbour;
-                        queue.add(edge.to);
-                    }
+                long nextWeight = Math.max(currentWeight, edge.weight);
+                if (!visited.contains(edge.to)) {
+                    queue.add(new Edge(edge.to, nextWeight));
                 }
             }
         }
@@ -203,10 +195,10 @@ class Graph {
     }
 
     private String bisaMencapai(int idStart, int idMiddle, int idEnd, long groupSize) {
-        boolean[] visited = new boolean[graph.size()];
         ArrayDeque<Integer> queue = new ArrayDeque<>();
+        Set<Integer> visited = new HashSet<>();
         queue.add(idStart);
-        visited[idStart] = true;
+        visited.add(idStart);
 
         boolean reachedMiddle = idStart == idMiddle;
 
@@ -220,12 +212,13 @@ class Graph {
             }
 
             for (Edge edge : graph.get(current)) {
-                if (!visited[edge.to] && edge.weight <= groupSize) {
-                    visited[edge.to] = true;
+                if (!visited.contains(edge.to) && edge.weight <= groupSize) {
+                    visited.add(edge.to);
                     queue.add(edge.to);
                 }
             }
         }
         return reachedMiddle ? "H" : "N";
     }
+
 }
