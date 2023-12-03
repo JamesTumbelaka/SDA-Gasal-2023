@@ -2,14 +2,11 @@ import java.io.*;
 import java.util.*;
 
 public class TP03 {
-
-    private static InputReader in;
-    private static PrintWriter out;
     public static void main(String[] args) {
         InputStream inputStream = System.in;
-        in = new InputReader(inputStream);
+        InputReader in = new InputReader(inputStream);
         OutputStream outputStream = System.out;
-        out = new PrintWriter(outputStream);
+        PrintWriter out = new PrintWriter(outputStream);
 
         int V = in.nextInt();
         int E = in.nextInt();
@@ -26,7 +23,7 @@ public class TP03 {
         for (int i = 0; i < E; i++) {
             int from = in.nextInt();
             int to = in.nextInt();
-            int weight = in.nextInt();
+            long weight = in.nextLong();
             graph.addEdge(from, to, weight);
             graph.addEdge(to, from, weight);
         }
@@ -36,26 +33,40 @@ public class TP03 {
             String query = in.next();
             switch (query) {
                 case "M":
-                    int groupSize = in.nextInt();
-                    out.println(graph.findMaxTreasureRooms(groupSize));
+                    M(in, out, graph);
                     break;
                 case "S":
-                    int startRoom = in.nextInt();
-                    out.println(graph.findMinGroupSizeToTreasure(startRoom));
+                    S(in, out, graph);
                     break;
                 case "T":
-                    int startId = in.nextInt();
-                    int middleId = in.nextInt();
-                    int endId = in.nextInt();
-                    int size = in.nextInt();
-                    out.println(graph.canTravel(startId, middleId, endId, size));
+                    T(in, out, graph);
                     break;
                 default:
                     break;
             }
+
         }
         out.close();
     }
+
+    private static void M(InputReader in, PrintWriter out, Graph graph) {
+        long groupSize = in.nextLong();
+        out.println(graph.jumlahMaksimumTreasureRoom(groupSize));
+    }
+
+    private static void S(InputReader in, PrintWriter out, Graph graph) {
+        int ruangStart = in.nextInt();
+        out.println(graph.banyakAnggotaTerkecil(ruangStart));
+    }
+
+    private static void T(InputReader in, PrintWriter out, Graph graph) {
+        int idStart = in.nextInt();
+        int idMiddle = in.nextInt();
+        int idEnd = in.nextInt();
+        long size = in.nextLong();
+        out.println(graph.bisaBergerak(idStart, idMiddle, idEnd, size));
+    }
+
     static class InputReader {
         public BufferedReader reader;
         public StringTokenizer tokenizer;
@@ -86,105 +97,135 @@ public class TP03 {
     }
 }
 
+class Edge {
+    int to;
+    long weight;
+
+    Edge(int to, long weight) {
+        this.to = to;
+        this.weight = weight;
+    }
+}
+
 class Graph {
-    private Map<Integer, List<Edge>> graph;
-    private Set<Integer> treasureRooms;
+    private ArrayList<ArrayList<Edge>> graph;
+    private ArrayList<Boolean> treasureRoom;
 
     public Graph(int V) {
-        graph = new HashMap<>();
-        treasureRooms = new HashSet<>();
-        for (int i = 1; i <= V; i++) {
-            graph.put(i, new ArrayList<>());
+        graph = new ArrayList<>();
+        treasureRoom = new ArrayList<>(Collections.nCopies(V + 1, false));
+        for (int i = 0; i <= V; i++) {
+            graph.add(new ArrayList<>());
         }
     }
 
-    public void addEdge(int from, int to, int weight) {
+    public void addEdge(int from, int to, long weight) {
         graph.get(from).add(new Edge(to, weight));
     }
 
-    public void addTreasureRoom(int roomId) {
-        treasureRooms.add(roomId);
-    }
-
-    public int findMaxTreasureRooms(int groupSize) {
-        Set<Integer> visited = new HashSet<>();
-        return dfs(1, groupSize, visited);
-    }
-
-    private int dfs(int node, int groupSize, Set<Integer> visited) {
-        visited.add(node);
-        int count = treasureRooms.contains(node) ? 1 : 0;
-
-        for (Edge edge : graph.get(node)) {
-            if (!visited.contains(edge.to) && edge.weight <= groupSize) {
-                count += dfs(edge.to, groupSize, visited);
-            }
+    public void addTreasureRoom(int idRuang) {
+        if (idRuang > 0 && idRuang < treasureRoom.size()) {
+            treasureRoom.set(idRuang, true);
+        } else {
+            throw new IllegalArgumentException("Invalid room ID: " + idRuang);
         }
-
-        return count;
     }
 
-    public int findMinGroupSizeToTreasure(int startRoom) {
-        Queue<Integer> queue = new LinkedList<>();
-        Map<Integer, Integer> minGroupSize = new HashMap<>();
-        queue.offer(startRoom);
-        minGroupSize.put(startRoom, 0);
 
-        while (!queue.isEmpty()) {
-            int current = queue.poll();
+    public int jumlahMaksimumTreasureRoom(long groupSize) {
+        return dfs(groupSize);
+    }
 
-            if (treasureRooms.contains(current)) {
-                return minGroupSize.get(current);
+    public int banyakAnggotaTerkecil(int ruangStart) {
+        return bfs(ruangStart);
+    }
+
+    public String bisaBergerak(int idStart, int idMiddle, int idEnd, long groupSize) {
+        return bisaMencapai(idStart, idMiddle, idEnd, groupSize);
+    }
+
+    private int dfs(long groupSize) {
+        boolean[] visited = new boolean[graph.size()];
+        ArrayDeque<Integer> stack = new ArrayDeque<>();
+        stack.push(1);
+        int maxRooms = 0;
+
+        while (!stack.isEmpty()) {
+            int node = stack.pop();
+            if (visited[node]) {
+                continue;
+            }
+            visited[node] = true;
+
+            if (treasureRoom.get(node)) {
+                maxRooms++;
             }
 
-            for (Edge edge : graph.get(current)) {
-                if (!minGroupSize.containsKey(edge.to) || minGroupSize.get(edge.to) > edge.weight) {
-                    minGroupSize.put(edge.to, edge.weight);
-                    queue.offer(edge.to);
+            for (Edge edge : graph.get(node)) {
+                if (edge.weight <= groupSize && !visited[edge.to]) {
+                    stack.push(edge.to);
                 }
             }
         }
+        return maxRooms;
+    }
 
+    private int bfs(int ruangStart) {
+        boolean[] visited = new boolean[graph.size()];
+        LinkedList<Integer> queue = new LinkedList<>();
+        long[] maxEdgeWeightTo = new long[graph.size()];
+        Arrays.fill(maxEdgeWeightTo, Long.MAX_VALUE);
+        maxEdgeWeightTo[ruangStart] = 0;
+        queue.add(ruangStart);
+
+        while (!queue.isEmpty()) {
+            int currentRoom = queue.poll();
+            if (visited[currentRoom]) {
+                continue;
+            }
+            visited[currentRoom] = true;
+
+            if (treasureRoom.get(currentRoom)) {
+                return (int) maxEdgeWeightTo[currentRoom];
+            }
+
+            for (Edge edge : graph.get(currentRoom)) {
+                if (!visited[edge.to]) {
+                    long weightToNeighbour = Math.max(maxEdgeWeightTo[currentRoom], edge.weight);
+                    if (weightToNeighbour < maxEdgeWeightTo[edge.to]) {
+                        maxEdgeWeightTo[edge.to] = weightToNeighbour;
+                        queue.add(edge.to);
+                    }
+                }
+            }
+        }
         return -1;
     }
-    public String canTravel(int startId, int middleId, int endId, int groupSize) {
-        boolean canReachMiddle = canReach(startId, middleId, groupSize);
-        if (!canReachMiddle) {
-            return "N";
-        }
-        boolean canReachEnd = canReach(middleId, endId, groupSize);
-        return canReachEnd ? "Y" : "H";
-    }
 
-    private boolean canReach(int start, int end, int groupSize) {
-        Queue<Integer> queue = new LinkedList<>();
-        Set<Integer> visited = new HashSet<>();
-        queue.offer(start);
-        visited.add(start);
+    private String bisaMencapai(int idStart, int idMiddle, int idEnd, long groupSize) {
+        boolean[] visited = new boolean[graph.size()];
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        queue.add(idStart);
+        visited[idStart] = true;
+
+        boolean reachedMiddle = idStart == idMiddle;
 
         while (!queue.isEmpty()) {
             int current = queue.poll();
-            if (current == end) {
-                return true;
+            if (current == idEnd && reachedMiddle) {
+                return "Y";
+            }
+            if (current == idMiddle) {
+                reachedMiddle = true;
             }
 
             for (Edge edge : graph.get(current)) {
-                if (!visited.contains(edge.to) && edge.weight <= groupSize) {
-                    visited.add(edge.to);
-                    queue.offer(edge.to);
+                if (!visited[edge.to] && edge.weight <= groupSize) {
+                    visited[edge.to] = true;
+                    queue.add(edge.to);
                 }
             }
         }
-        return false;
-    }
-
-    static class Edge {
-        int to;
-        int weight;
-
-        Edge(int to, int weight) {
-            this.to = to;
-            this.weight = weight;
-        }
+        return reachedMiddle ? "H" : "N";
     }
 }
