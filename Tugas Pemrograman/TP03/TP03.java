@@ -195,30 +195,39 @@ class Graph {
     }
 
     private String bisaMencapai(int idStart, int idMiddle, int idEnd, long groupSize) {
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
-        Set<Integer> visited = new HashSet<>();
-        queue.add(idStart);
-        visited.add(idStart);
+        boolean canReachMiddle = isReachable(idStart, idMiddle, groupSize);
+        boolean canReachEndFromMiddle = isReachable(idMiddle, idEnd, groupSize);
 
-        boolean reachedMiddle = idStart == idMiddle;
+        if (!canReachMiddle) {
+            return "N";
+        } else if (canReachMiddle && !canReachEndFromMiddle) {
+            return "H";
+        } else {
+            return "Y";
+        }
+    }
+
+    private boolean isReachable(int start, int end, long groupSize) {
+        int[] distance = new int[graph.size() + 1];
+        Arrays.fill(distance, Integer.MAX_VALUE);
+        distance[start] = 0;
+
+        Queue<Integer> queue = new LinkedList<>();
+        queue.offer(start);
 
         while (!queue.isEmpty()) {
             int current = queue.poll();
-            if (current == idEnd && reachedMiddle) {
-                return "Y";
-            }
-            if (current == idMiddle) {
-                reachedMiddle = true;
+            if (current == end) {
+                return true;
             }
 
             for (Edge edge : graph.get(current)) {
-                if (!visited.contains(edge.to) && edge.weight <= groupSize) {
-                    visited.add(edge.to);
-                    queue.add(edge.to);
+                if (distance[edge.to] == Integer.MAX_VALUE && edge.weight <= groupSize) {
+                    distance[edge.to] = distance[current] + 1;
+                    queue.offer(edge.to);
                 }
             }
         }
-        return reachedMiddle ? "H" : "N";
+        return false;
     }
-
 }
