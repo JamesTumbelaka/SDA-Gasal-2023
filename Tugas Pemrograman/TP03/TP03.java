@@ -29,6 +29,8 @@ public class TP03 {
             graph.addEdge(to, from, weight);
         }
 
+        graph.precomputeDijkstra(tRooms);
+
         int Q = in.nextInt();
         for (int i = 0; i < Q; i++) {
             String query = in.next();
@@ -99,13 +101,16 @@ class Graph {
     public long V;
     private ArrayList<ArrayList<Edge>> graph;
     public ArrayList<Integer> treasureRoom;
+    private ArrayList<ArrayList<Long>> dijkstraResults;
 
     public Graph(long v) {
         this.V = v;
-        graph = new ArrayList<>((int)v + 1);
+        graph = new ArrayList<>(Collections.nCopies((int)v + 1, null));
         treasureRoom = new ArrayList<>();
+        dijkstraResults = new ArrayList<>(Collections.nCopies((int)v + 1, null));
         for (int i = 0; i <= V; i++) {
-            graph.add(new ArrayList<>());
+            graph.set(i, new ArrayList<>());
+            dijkstraResults.set(i, new ArrayList<>(Collections.nCopies((int)V + 1, Long.MAX_VALUE)));
         }
     }
 
@@ -113,12 +118,32 @@ class Graph {
         graph.get(from).add(new Edge(to, weight));
     }
 
+    public void precomputeDijkstra(List<Integer> tRooms) {
+        for (int tRoom : tRooms) {
+            ArrayList<Long> dijkstraResult = dijkstra(tRoom);
+            dijkstraResults.set(tRoom, dijkstraResult);
+        }
+    }
+
     public int jumlahMaksimumTreasureRoom(long groupSize, List<Integer> rooms) {
-        return maxTRooms(groupSize, rooms);
+        int maxRooms = 0;
+        for (int tRoom : rooms) {
+            if (dijkstraResults.get(tRoom).get(1) <= groupSize) {
+                maxRooms++;
+            }
+        }
+        return maxRooms;
     }
 
     public long banyakAnggotaTerkecil(int ruangStart, List<Integer> tRooms) {
-        return minGroupSize(ruangStart, tRooms);
+        long minGroupSize = Long.MAX_VALUE;
+        for (int tRoom : tRooms) {
+            long groupSize = dijkstraResults.get(tRoom).get(ruangStart);
+            if (groupSize < minGroupSize) {
+                minGroupSize = groupSize;
+            }
+        }
+        return minGroupSize == Long.MAX_VALUE ? -1 : minGroupSize;
     }
 
     public String bisaBergerak(int idStart, int idMiddle, int idEnd, long groupSize) {
@@ -134,33 +159,6 @@ class Graph {
                 return "H";
             }
         }
-    }
-
-    private int maxTRooms(long groupSize, List<Integer> rooms) {
-        boolean[] isTRoom = new boolean[(int) V + 1];
-        for (int room : rooms) {
-            isTRoom[room] = true;
-        }
-        boolean[] visited = new boolean[(int) V + 1];
-        Queue<Integer> q = new LinkedList<>();
-        q.add(1);
-        visited[1] = true;
-        int maxRooms = 0;
-
-        while (!q.isEmpty() && maxRooms < rooms.size()) { 
-            int node = q.poll();
-            if (isTRoom[node]) {  
-                maxRooms++;
-            }
-
-            for (Edge edge : graph.get(node)) {
-                if (!visited[edge.to] && edge.weight <= groupSize) {  
-                    visited[edge.to] = true;
-                    q.add(edge.to);
-                }
-            }
-        }
-        return maxRooms;
     }
 
     public long minGroupSize(int ruangStart, List<Integer> tRooms) {
